@@ -29,11 +29,13 @@ namespace Wpf_testconnectRPC
     public partial class MainWindow : Window
     {
 
-        private static object LockFileObj = "lockFile";
+        private static object mainLockFileObj = "mainlockFile";
+        private static object testLockFileObj = "testlockFile";
+        private static object privateLockFileObj = "privatelockFile";
         static bool _DEBUG_FLAG = false;
         static string NeoCliJsonRPCUrl =   "http://112.35.60.124:10332"; //
-        static string NeoHTTPTestUrl = "https://api.nel.group/api/testnet"; //
-        static string NeoHTTPMainUrl = "https://api.nel.group/api/mainnet"; //
+        static string NeoHTTPTestUrl   =   "https://api.nel.group/api/testnet"; //
+        static string NeoHTTPMainUrl   =   "https://api.nel.group/api/mainnet"; //
 
         private string privateFileName = @"d:\my_connect\private_block_index.txt";
         private string mainFileName    = @"d:\my_connect\main_block_index.txt";
@@ -140,7 +142,7 @@ namespace Wpf_testconnectRPC
                     else
                     {
                         if (find == 1)
-                            WriteStringToFile(index.ToString(), logfilename, true);
+                            WriteStringToFileLOCK(index.ToString(), logfilename, true,flag);
                         index++;
                     }
                     if (flag == (int)BLOCK_Flag.main) main_Index = index;
@@ -148,7 +150,7 @@ namespace Wpf_testconnectRPC
                     if (flag == (int)BLOCK_Flag.priv) private_Index = index;
 
                 }
-                WriteStringToFile("#"+index, logfilename,true);
+                WriteStringToFileLOCK("#"+index, logfilename,true,flag);
                 if(flag == (int)BLOCK_Flag.main)
                     Console.WriteLine("GetMainBlockTask exit!!!!!!!!!!!!!");
                 if(flag == (int)BLOCK_Flag.test)
@@ -197,7 +199,16 @@ namespace Wpf_testconnectRPC
         }
         private void Private_Click(object sender, RoutedEventArgs e)
         {
-            Async_HTTP_Search((int)BLOCK_Flag.priv);
+            //Async_HTTP_Search((int)BLOCK_Flag.priv);
+            start_Search_Task((int)BLOCK_Flag.priv);
+        }
+        private void start_Search_Task(int flag) {
+            Task taskSearch = new Task(() =>
+            {
+                Async_HTTP_Search(flag);
+
+            });
+            taskSearch.Start();
         }
 
         private void old_Private_Click(object sender, RoutedEventArgs e)
@@ -483,7 +494,7 @@ namespace Wpf_testconnectRPC
         private  void DoWorkUTXOData(JObject Tx ,long blockindex , int flag)
         {
             //DoWorkUTXOData(Tx);
-            Console.WriteLine("DoWorkUTXOData");
+            Console.WriteLine("DoWorkUTXOData:" + blockindex);
 
             //string allTxBlock = all_tx_block.ToString()+"]}";
             //var allTxs = JObject.Parse(allTxBlock)["record"];
@@ -495,13 +506,18 @@ namespace Wpf_testconnectRPC
             var Vins = Tx["vin"].ToList();
             var Vouts = Tx["vout"].ToList();
 
+            int vins_index = 1; 
+
             //处理抛出的交易数量
             if (Vins.Count > 0)
             {
                 //Console.WriteLine("%%%%%  vin %%%%%%%%%%%");
                 //Console.WriteLine(Tx["vin"]);
-               // Console.WriteLine("###########  allTxs  ###########");
+                // Console.WriteLine("###########  allTxs  ###########");
                 //逐条 处理 INPUT的交易记录
+                string LastTxid = "";
+                string LastFilestr = "";
+
                 foreach (JObject vin in Tx["vin"])
                 {
                     //Console.WriteLine(vin["vout"].ToString());
@@ -512,8 +528,15 @@ namespace Wpf_testconnectRPC
 
                     //全量查找OUTPUT交易记录中的交易号 txid
                     //var result = allTxs.ToList().Where(p => p["txid"].ToString() == vin["txid"].ToString()).Select(p => p["vout"]) ;//&& p["vout"]["n"].ToString() == vin["vout"].ToString());// .Where(p => p["txid"]==vin["txid"] && p["vout"]["n"]==vin["vout"]).Select(p => p["out"]["asset"]);
-
-                    string filestr = ReadFileToString(DataDirection + vin["txid"].ToString());
+                    string filestr = "";
+                    if (LastTxid != vin["txid"].ToString())
+                    {
+                        LastTxid = vin["txid"].ToString();
+                        filestr = ReadFileToString(DataDirection + LastTxid).ToString();
+                        LastFilestr = filestr;
+                    }
+                    else
+                        filestr = LastFilestr;
 
                     //if (String.IsNullOrEmpty(filestr)) continue;
                     if (_DEBUG_FLAG)
@@ -524,6 +547,8 @@ namespace Wpf_testconnectRPC
                         //Thread.Sleep(2000);
                             
                     }
+                    //Console.WriteLine("Block index:" + blockindex + " 文件名：" + vin["txid"].ToString() + " filestr ==" + filestr);
+
                     if (String.IsNullOrEmpty(filestr))
                     {
                         this.Dispatcher.Invoke(()=> {
@@ -541,8 +566,8 @@ namespace Wpf_testconnectRPC
                     var result = resultstr["vout"];
                     int ci = 1;
 
-                    
-
+                    Console.WriteLine("  Index:" + blockindex + " vins(" + vins_index + "/"+ Vins.Count + ") "+  vin["txid"].ToString() + " " + vin["vout"].ToString());
+                    vins_index++;
                     //逐条 查找 OUTPUT交易记录 ===
                     foreach (var  v in result)
                     {
@@ -705,13 +730,15 @@ namespace Wpf_testconnectRPC
         */
         private void Test_Button_Click(object sender, RoutedEventArgs e)
         {
-            
-            Async_HTTP_Search((int)BLOCK_Flag.test);
+           
+            //Async_HTTP_Search((int)BLOCK_Flag.test);
+            start_Search_Task((int)BLOCK_Flag.test);
         }
 
         private void Main_button1_Click(object sender, RoutedEventArgs e)
         {
-            Async_HTTP_Search((int)BLOCK_Flag.main);
+            //Async_HTTP_Search((int)BLOCK_Flag.main);
+            start_Search_Task((int)BLOCK_Flag.main);
         }
 
 
@@ -719,25 +746,44 @@ namespace Wpf_testconnectRPC
         private async Task<string> HttpGetBlock(string index, int flag)
         {
             string result = null;
-
-            using (WebClient wc = new WebClient())
+            while (true)
             {
-                 wc.Encoding= System.Text.Encoding.GetEncoding("UTF-8");  //防止中文乱码
-                                                                             //Uri uri = new Uri("https://www.baidu.com");
-                                                                             //result = wc.DownloadString(uri);//.   DownloadStringTaskAsync("https://www.baidu.com"));
+                try
+                {
+                    using (WebClient wc = new WebClient())
+                    {
+                        wc.Encoding = System.Text.Encoding.GetEncoding("UTF-8");  //防止中文乱码
+                                                                                  //Uri uri = new Uri("https://www.baidu.com");
+                                                                                  //result = wc.DownloadString(uri);//.   DownloadStringTaskAsync("https://www.baidu.com"));
 
-                string urlstr = null;
-                if (flag == (int)BLOCK_Flag.test)
-                    urlstr = NeoHTTPTestUrl + "?jsonrpc=2.0&id=1&method=getblock&params=[" + index + ",1]";
+                        string urlstr = null;
+                        if (flag == (int)BLOCK_Flag.test)
+                            urlstr = NeoHTTPTestUrl + "?jsonrpc=2.0&id=1&method=getblock&params=[" + index + ",1]";
 
-                if (flag == (int)BLOCK_Flag.main)
-                    urlstr = NeoHTTPMainUrl + "?jsonrpc=2.0&id=1&method=getblock&params=["+index+",1]";
+                        if (flag == (int)BLOCK_Flag.main)
+                            urlstr = NeoHTTPMainUrl + "?jsonrpc=2.0&id=1&method=getblock&params=[" + index + ",1]";
 
-                if(flag == (int)BLOCK_Flag.priv )
-                    urlstr = NeoCliJsonRPCUrl + "?jsonrpc=2.0&id=1&method=getblock&params=[" + index + ",1]";
-                result = await wc.DownloadStringTaskAsync(urlstr);
+                        if (flag == (int)BLOCK_Flag.priv)
+                            urlstr = NeoCliJsonRPCUrl + "?jsonrpc=2.0&id=1&method=getblock&params=[" + index + ",1]";
+
+                        result = await wc.DownloadStringTaskAsync(urlstr);
+                        break;
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    this.Dispatcher.Invoke(() => {
+                        if (flag == (int)BLOCK_Flag.test)
+                            this.errorText.Text = this.errorText.Text + "test Block Index:" + index + " ERROR:" + e.ToString() + " \n\r";
+                        if (flag == (int)BLOCK_Flag.main)
+                            this.errorText.Text = this.errorText.Text + "main Block Index:" + index + " ERROR:" + e.ToString() + " \n\r";
+                        if (flag == (int)BLOCK_Flag.priv)
+                            this.errorText.Text = this.errorText.Text + "private Block Index:" + index + " ERROR:" + e.ToString() + " \n\r";
+                    });
+                    Thread.Sleep(3000);
+                }
             }
- 
             return result;
         }
         private void refreshListData(int flag)
@@ -748,20 +794,20 @@ namespace Wpf_testconnectRPC
                 if (flag == (int)BLOCK_Flag.test)
                 {
                     TestButton.IsEnabled = false;
-                    ReadTxtToLst(listBox, testFileName);
-                    listBox.Items.Add(test_Index);
+                    ReadTxtToLstLOCK(listBox, testFileName,flag);
+                    this.listBox.Items.Add(test_Index);
                 }
                 if (flag == (int)BLOCK_Flag.main)
                 {
                     MainButton.IsEnabled = false;
-                    ReadTxtToLst(listBox, mainFileName);
-                    listBox.Items.Add(main_Index);
+                    ReadTxtToLstLOCK(listBox, mainFileName,flag);
+                    this.listBox.Items.Add(main_Index);
                 }
                 if (flag == (int)BLOCK_Flag.priv)
                 {
                     PrivateButton1.IsEnabled = false;
-                    ReadTxtToLst(listBox, privateFileName);
-                    listBox.Items.Add(private_Index);
+                    ReadTxtToLstLOCK(listBox, privateFileName,flag);
+                    this.listBox.Items.Add(private_Index);
                 }
 
 
@@ -813,13 +859,20 @@ namespace Wpf_testconnectRPC
             if (flag == (int)BLOCK_Flag.main ) logf = mainDataDirection +@"log\";
             if (flag == (int)BLOCK_Flag.test) logf = testDataDirection + @"log\";
             if (flag == (int)BLOCK_Flag.priv) logf = privateDataDirection + @"log\";
-            if (!string.IsNullOrEmpty(errorText.Text.ToString().Trim()))
+            string errstr = null;
+            this.Dispatcher.Invoke(() =>
+            {
+                errstr = this.errorText.Text.ToString().Trim();
+            }
+            );
+
+            if (!string.IsNullOrEmpty(errstr))
             {
                 if (!Directory.Exists(logf)) Directory.CreateDirectory(logf);
                 //DateTime cnow = DateTime.Now;
                 logf = logf + "ERROR_log_" + DateTime.Now.ToString("u").Replace(":", "-")+ ".txt";// cnow.ToShortDateString() + " " + cnow.ToShortTimeString();
 
-                WriteStringToFile(errorText.Text.ToString(),logf, false);
+                WriteStringToFile(errstr, logf, false);
             }
         }
 
@@ -828,47 +881,60 @@ namespace Wpf_testconnectRPC
         {
             string helpstr="";
             _DEBUG_FLAG = false;
-
-            long bid = long.Parse(this.blockid.Text.ToString());
+            long bid = 0;
+            this.Dispatcher.Invoke(() => {
+                bid = long.Parse(this.blockid.Text.ToString());
+                this.slider1.Maximum = bid;
+                this.errorText.Text = "";
+            });
 
             //导入上次处理的BLOCK INDEX数据，到缓冲区
             refreshListData(flag);
-            slider1.Maximum = bid;
+
+
+           
 
             DateTime start = DateTime.Now;
-            errorText.Text = "";
-
-            if (flag == (int)BLOCK_Flag.test)
+            this.Dispatcher.Invoke(() =>
             {
-                //TestButton.IsEnabled = false;
-                helpstr = "Test Chain :" + this.blockid.Text.ToString();
-                //ReadTxtToLst(listBox, testFileName);
-            }
-            if (flag == (int)BLOCK_Flag.main)
-            {
-                //MainButton.IsEnabled = false;
-                helpstr = "Main Chain :" + this.blockid.Text.ToString();
-                //ReadTxtToLst(listBox, mainFileName);
-            }
+                if (flag == (int)BLOCK_Flag.test)
+                {
+                    //TestButton.IsEnabled = false;
+                    helpstr = "Test Chain :" + this.blockid.Text.ToString();
+                    //ReadTxtToLst(listBox, testFileName);
+                }
+                if (flag == (int)BLOCK_Flag.main)
+                {
+                    //MainButton.IsEnabled = false;
+                    helpstr = "Main Chain :" + this.blockid.Text.ToString();
+                    //ReadTxtToLst(listBox, mainFileName);
+                }
 
-            if (flag == (int)BLOCK_Flag.priv)
-            {
-                //PrivateButton1.IsEnabled = false;
-                helpstr = "Private Chain :" + this.blockid.Text.ToString();
+                if (flag == (int)BLOCK_Flag.priv)
+                {
+                    //PrivateButton1.IsEnabled = false;
+                    helpstr = "Private Chain :" + this.blockid.Text.ToString();
 
-                //ReadTxtToLst(listBox, testFileName);
-            }
- 
+                    //ReadTxtToLst(listBox, testFileName);
+                }
+            });
             //钱包的资产数据缓冲区
             AccountNEOs.Clear();
             AccountGASs.Clear();
+
+
             long saveBi =  loadAccountRecord(flag, bid);
 
             long bi = 0;
             int countI = 0;
             // 对缓冲区的BLOCK INDEX 进行分析处理，提升了查询速度 ===
             for (int i = 0; i < listBox.Items.Count  ; i++) {
-                string index = listBox.Items[i].ToString().Trim();
+                string index = "";
+                this.Dispatcher.Invoke(() =>
+                {
+                    index = listBox.Items[i].ToString().Trim();
+                }
+                );
                 //if (string.IsNullOrEmpty(index)) break;
                 if (index.IndexOf("#") > -1) continue;
 
@@ -961,7 +1027,10 @@ namespace Wpf_testconnectRPC
                 bool addL = await DoWorkBlockDate(bi, flag);
                 //增加有数据的BLOCK INDEX到缓冲区
                 if (addL) {
-                    this.listBox.Items.Add(bi);
+                    this.Dispatcher.Invoke(() =>
+                    {
+                        this.listBox.Items.Add(bi);
+                    });
 
                     //每次20个交易记录保存一次文件 ====
                     countI++;
@@ -988,10 +1057,11 @@ namespace Wpf_testconnectRPC
 
             this.Dispatcher.Invoke(() => {
                 this.slider1.Value = bid;
+                this.TestButton.IsEnabled = true;
+                this.MainButton.IsEnabled = true;
+                this.PrivateButton1.IsEnabled = true;
+
             });
-            TestButton.IsEnabled = true;
-            MainButton.IsEnabled = true;
-            PrivateButton1.IsEnabled = true;
             DateTime end = DateTime.Now;
             var doTime = (end - start).TotalSeconds;//.TotalMilliseconds;
             string timestr = "耗时:" + doTime + "s\n";
@@ -999,9 +1069,9 @@ namespace Wpf_testconnectRPC
                 accounts.Text = helpstr +"\n" +timestr + totalAccountRecord();
 
             });
-
             saveERRORlog(flag);
-            saveAccountRecord(bid,flag);
+            saveAccountRecord(bid, flag);
+
 
             //accounts.Dispatcher.Invoke(setAccountBack, timestr + totalAccountRecord());
 
@@ -1142,6 +1212,7 @@ namespace Wpf_testconnectRPC
             {
                 Console.WriteLine(resultstr);
             }
+            Console.WriteLine("DoOneTXData");
             string record_str = doWorkTxData(resultstr, bi, flag);
             if (!string.IsNullOrEmpty(record_str))
             {
@@ -1218,17 +1289,35 @@ namespace Wpf_testconnectRPC
             
         }
 
-        private void WriteStringToFile(string data,string spath,bool appendFlag )
+        private void WriteStringToFileLOCK(string data,string spath,bool appendFlag ,int flag )
         {
-            lock (LockFileObj)
-            {
-                StreamWriter _wstream = null;
-                _wstream = new StreamWriter(spath, appendFlag); //true 追加的标记
-                _wstream.Write(data);
-                _wstream.WriteLine();
-                _wstream.Flush();
-                _wstream.Close();
-            }
+
+            if(flag ==(int)BLOCK_Flag.main )
+                lock (mainLockFileObj)
+                {
+                    WriteStringToFile(data, spath, appendFlag);
+                }
+            if (flag == (int)BLOCK_Flag.test)
+                lock (testLockFileObj)
+                {
+                    WriteStringToFile(data, spath, appendFlag);
+                }
+            if (flag == (int)BLOCK_Flag.priv)
+                lock (privateLockFileObj)
+                {
+                    WriteStringToFile(data, spath, appendFlag);
+                }
+
+        }
+        private void WriteStringToFile(string data, string spath, bool appendFlag)
+        {
+            StreamWriter _wstream = null;
+            _wstream = new StreamWriter(spath, appendFlag); //true 追加的标记
+            _wstream.Write(data);
+            _wstream.WriteLine();
+            _wstream.Flush();
+            _wstream.Close();
+
         }
 
         private void WriteLstToTxt(ListBox lst, string spath) //listbox 写入txt文件
@@ -1242,7 +1331,7 @@ namespace Wpf_testconnectRPC
 
 
             int count = lst.Items.Count;
-            lock (LockFileObj)
+            lock (mainLockFileObj)
             {
                 StreamWriter _wstream = null;
                 _wstream = new StreamWriter(spath);
@@ -1259,7 +1348,7 @@ namespace Wpf_testconnectRPC
         }
 
 
-        private void ReadTxtToLst(ListBox lst, string spath) //listbox 读取txt文件
+        private void ReadTxtToLstLOCK(ListBox lst, string spath,int flag) //listbox 读取txt文件
         {
 
             if (!File.Exists(spath))
@@ -1267,39 +1356,77 @@ namespace Wpf_testconnectRPC
                 return ;
             }
             lst.Items.Clear();
-            lock (LockFileObj)
-            {
-                StreamReader _rstream = null;
-                _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
-                string line;
-                while ((line = _rstream.ReadLine()) != null)
+            if(flag == (int)BLOCK_Flag.main)
+                lock (mainLockFileObj)
                 {
-                    lst.Items.Add(line);
+                    ReadTxtToLst(lst, spath);
                 }
-                _rstream.Close();
+            if (flag == (int)BLOCK_Flag.test)
+                lock (testLockFileObj)
+                {
+                    ReadTxtToLst(lst, spath);
+                }
+            if (flag == (int)BLOCK_Flag.priv)
+                lock (privateLockFileObj)
+                {
+                    ReadTxtToLst(lst, spath);
+                }
+        }
+        private void ReadTxtToLst(ListBox lst, string spath)
+        {
+            StreamReader _rstream = null;
+            _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
+            string line;
+            while ((line = _rstream.ReadLine()) != null)
+            {
+                lst.Items.Add(line);
             }
+            _rstream.Close();
+
         }
 
-        private string ReadFileToString( string spath) // 读取txt文件
+
+        private StringBuilder ReadFileToStringLOCK( string spath,int flag) // 读取txt文件
         {
-            StringBuilder result = new StringBuilder();
+            StringBuilder result = null;
             if (!File.Exists(spath))
             {
-                return result.ToString();
+                return result;
             }
-            lock (LockFileObj)
-            {
-                StreamReader _rstream = null;
-                _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
-                string line;
-                while ((line = _rstream.ReadLine()) != null)
+            if(flag == (int)BLOCK_Flag.main)
+                lock (mainLockFileObj)
                 {
-                    result.Append(line);
+                    result= ReadFileToString(spath);
                 }
-                _rstream.Close();
-            }
-            return result.ToString();
+            if (flag == (int)BLOCK_Flag.test)
+                lock (testLockFileObj)
+                {
+                    result=ReadFileToString(spath);
+                }
+            if (flag == (int)BLOCK_Flag.priv)
+                lock (privateLockFileObj)
+                {
+                    result=ReadFileToString(spath);
+                }
+
+            return result; 
+            
+            
         }
+        private StringBuilder ReadFileToString(string spath) // 读取txt文件
+        {
+            StringBuilder result = new StringBuilder();
+            StreamReader _rstream = null;
+            _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
+            string line;
+            while ((line = _rstream.ReadLine()) != null)
+            {
+                result.Append(line);
+            }
+            _rstream.Close();
+            return result;
+        }
+
         private int ReadTxtCounts(string spath) //listbox 读取txt文件的行数==
         {
             int counts = 0;
@@ -1307,7 +1434,7 @@ namespace Wpf_testconnectRPC
             {
                 return counts;
             }
-            lock (LockFileObj)
+            lock (mainLockFileObj)
             {
                 StreamReader _rstream = null;
                 _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
