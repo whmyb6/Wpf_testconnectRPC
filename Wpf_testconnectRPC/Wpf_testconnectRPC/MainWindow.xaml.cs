@@ -1416,6 +1416,11 @@ namespace Wpf_testconnectRPC
         private StringBuilder ReadFileToString(string spath) // 读取txt文件
         {
             StringBuilder result = new StringBuilder();
+            if (!File.Exists(spath))
+            {
+                return result;
+            }
+
             StreamReader _rstream = null;
             _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
             string line;
