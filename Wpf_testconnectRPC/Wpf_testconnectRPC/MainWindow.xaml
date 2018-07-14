@@ -28,11 +28,11 @@
         </ListBox>
         <TextBox x:Name="errorText" HorizontalAlignment="Left" Height="364" Margin="127,61,0,0" TextWrapping="NoWrap" Text="" VerticalAlignment="Top" Width="394" VerticalScrollBarVisibility ="Auto" HorizontalScrollBarVisibility="Auto"/>
         <Label Content="main:" HorizontalAlignment="Left" Height="31" Margin="33,441,0,0" VerticalAlignment="Top" Width="59" MouseDoubleClick="Main_DoubleClick" />
-        <Label Content="test:" HorizontalAlignment="Left" Margin="161,441,0,0" VerticalAlignment="Top" MouseDoubleClick="Test_DoubleClick"/>
-        <Label Content="private:" HorizontalAlignment="Left" Margin="286,441,0,0" VerticalAlignment="Top" MouseDoubleClick="Private_MouseDoubleClick" />
-        <Label Name="PrivateIndex" Content="Label" HorizontalAlignment="Left" Margin="344,441,0,0" VerticalAlignment="Top"/>
-        <Label Name="TestIndex"  Content="Label" HorizontalAlignment="Left" Margin="200,441,0,0" VerticalAlignment="Top"/>
-        <Label Name="MainIndex"  Content="Label" HorizontalAlignment="Left" Margin="83,441,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.28,0.547" />
+        <Label Content="test:" HorizontalAlignment="Left" Margin="295,441,0,0" VerticalAlignment="Top" MouseDoubleClick="Test_DoubleClick"/>
+        <Label Content="private:" HorizontalAlignment="Left" Margin="541,441,0,0" VerticalAlignment="Top" MouseDoubleClick="Private_MouseDoubleClick" RenderTransformOrigin="1.371,0.516" />
+        <Label Name="PrivateIndex" Content="Label" HorizontalAlignment="Left" Margin="591,441,0,0" VerticalAlignment="Top" RenderTransformOrigin="2.47,0.422"/>
+        <Label Name="TestIndex"  Content="Label" HorizontalAlignment="Left" Margin="329,441,0,0" VerticalAlignment="Top" RenderTransformOrigin="3.47,0.828"/>
+        <Label Name="MainIndex"  Content="Label" HorizontalAlignment="Left" Margin="69,441,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.28,0.547" />
 
     </Grid>
 </Window>

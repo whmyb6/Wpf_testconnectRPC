@@ -116,6 +116,7 @@ namespace Wpf_testconnectRPC
             if(flag == (int)BLOCK_Flag.main) logfilename = mainFileName;
             if(flag == (int)BLOCK_Flag.test) logfilename = testFileName;
             if(flag == (int)BLOCK_Flag.priv) logfilename = privateFileName;
+            
             Task taskGetMain = new Task(async()=>{
                 string lastStr = ReadTxtLastLine(logfilename);
                 if(lastStr.IndexOf("#")== 0)
@@ -123,6 +124,8 @@ namespace Wpf_testconnectRPC
                     lastStr = lastStr.Substring(1);
                 }
                 long index =long.Parse(lastStr)+1;
+                long blockCount = 0;
+                int blockJS = 0;
                 //index = 99999999999999;
                 while (Run_flag)
                 {
@@ -138,6 +141,7 @@ namespace Wpf_testconnectRPC
                     if (find == -1)
                     {
                         Thread.Sleep(3000);
+                        blockJS = 0;
                     }
                     else
                     {
@@ -145,9 +149,45 @@ namespace Wpf_testconnectRPC
                             WriteStringToFileLOCK(index.ToString(), logfilename, true,flag);
                         index++;
                     }
-                    if (flag == (int)BLOCK_Flag.main) main_Index = index;
-                    if (flag == (int)BLOCK_Flag.test) test_Index = index;
-                    if (flag == (int)BLOCK_Flag.priv) private_Index = index;
+
+                    //if (flag == (int)BLOCK_Flag.main) main_Index = index;
+                    //if (flag == (int)BLOCK_Flag.test) test_Index = index;
+                    //if (flag == (int)BLOCK_Flag.priv) private_Index = index;
+
+                    if ( blockJS % 100 == 0) {
+                        blockJS = 0;
+                        blockCount = await FindBlockCount(flag);
+                        Console.WriteLine("Block Count:" + blockCount);
+                    }
+                    blockJS++;
+                    if (flag == (int)BLOCK_Flag.test)
+                    {
+                        test_Index = index;
+                        Console.WriteLine("test: " + index);
+                        this.Dispatcher.Invoke(() =>
+                        {
+                            this.TestIndex.Content = index + " / " + blockCount;
+                        });
+                    }
+                    if (flag == (int)BLOCK_Flag.main)
+                    {
+                        main_Index = index;
+                        Console.WriteLine("main: " + index);
+                        this.Dispatcher.Invoke(() =>
+                        {
+                            this.MainIndex.Content = index + " / " + blockCount;
+                        });
+                    }
+                    if (flag == (int)BLOCK_Flag.priv)
+                    {
+                        private_Index = index;
+                        Console.WriteLine("private: " + index);
+                        this.Dispatcher.Invoke(() =>
+                        {
+                            this.PrivateIndex.Content = index + " / " + blockCount;
+                        });
+                    }
+
 
                 }
                 WriteStringToFileLOCK("#"+index, logfilename,true,flag);
@@ -741,6 +781,51 @@ namespace Wpf_testconnectRPC
             start_Search_Task((int)BLOCK_Flag.main);
         }
 
+        // HTTPS获取BLOCK COUNT数据 ===
+        private async Task<string> HttpGetBlockCount( int flag)
+        {
+            string result = null;
+            while (true)
+            {
+                try
+                {
+                    using (WebClient wc = new WebClient())
+                    {
+                        wc.Encoding = System.Text.Encoding.GetEncoding("UTF-8");  //防止中文乱码
+                                                                                  //Uri uri = new Uri("https://www.baidu.com");
+                                                                                  //result = wc.DownloadString(uri);//.   DownloadStringTaskAsync("https://www.baidu.com"));
+
+                        string urlstr = null;
+                        if (flag == (int)BLOCK_Flag.test)
+                            urlstr = NeoHTTPTestUrl + "?jsonrpc=2.0&id=1&method=getblockcount&params=[]";
+
+                        if (flag == (int)BLOCK_Flag.main)
+                            urlstr = NeoHTTPMainUrl + "?jsonrpc=2.0&id=1&method=getblockcount&params=[]";
+
+                        if (flag == (int)BLOCK_Flag.priv)
+                            urlstr = NeoCliJsonRPCUrl + "?jsonrpc=2.0&id=1&method=getblockcount&params=[]";
+
+                        result = await wc.DownloadStringTaskAsync(urlstr);
+                        break;
+                    }
+
+                }
+                catch (Exception e)
+                {
+                    this.Dispatcher.Invoke(() => {
+                        if (flag == (int)BLOCK_Flag.test)
+                            this.errorText.Text = this.errorText.Text + "test BlockCount ERROR:" + e.ToString() + " \n\r";
+                        if (flag == (int)BLOCK_Flag.main)
+                            this.errorText.Text = this.errorText.Text + "main BlockCount ERROR:" + e.ToString() + " \n\r";
+                        if (flag == (int)BLOCK_Flag.priv)
+                            this.errorText.Text = this.errorText.Text + "private BlockCount ERROR:" + e.ToString() + " \n\r";
+                    });
+                    Thread.Sleep(3000);
+                }
+            }
+            return result;
+        }
+
 
         // HTTPS获取BLOCK数据 ===
         private async Task<string> HttpGetBlock(string index, int flag)
@@ -1083,30 +1168,7 @@ namespace Wpf_testconnectRPC
             //resultstr = r;
             bool findInOut = false;
             var Txs = JObject.Parse(resultstr)["tx"];
-            if (flag == (int)BLOCK_Flag.test)
-            {
-                Console.WriteLine("test: " + bi);
-                this.Dispatcher.Invoke(() =>
-                {
-                    this.TestIndex.Content = bi;
-                });
-            }
-            if (flag == (int)BLOCK_Flag.main)
-            {
-                Console.WriteLine("main: " + bi);
-                this.Dispatcher.Invoke(() =>
-                {
-                    this.MainIndex.Content = bi;
-                });
-            }
-            if (flag == (int)BLOCK_Flag.priv)
-            {
-                Console.WriteLine("private: " + bi);
-                this.Dispatcher.Invoke(() =>
-                {
-                    this.PrivateIndex.Content = bi;
-                });
-            }
+
             foreach (JObject bv in Txs)
             {
                 var Vin = bv["vin"].ToList();
@@ -1121,8 +1183,28 @@ namespace Wpf_testconnectRPC
             return findInOut;
         }
 
-        // 搜索BLOCK的数据是否存在交易记录，返回INDEX  searchTest = TRUE，表示使用测试链 FALSE 使用公有链
-        private async Task<int> FindINorOUTdata(long bi, int flag)
+        private async Task<long> FindBlockCount(int flag)
+        {
+            string result = await HttpGetBlockCount(flag);
+            JObject resJ = JObject.Parse(result);
+            JArray res = null;
+            if (flag == (int)BLOCK_Flag.priv) //采集 privatenet{
+            {
+                result = resJ["result"].ToString();
+            }
+            else {
+                res = JArray.Parse(Newtonsoft.Json.JsonConvert.SerializeObject(resJ["result"]));
+                //Console.WriteLine(res[0]["blockcount"]);
+                result = res[0]["blockcount"].ToString();
+            }
+            return long.Parse(result);
+
+
+        }
+
+
+            // 搜索BLOCK的数据是否存在交易记录，返回INDEX  searchTest = TRUE，表示使用测试链 FALSE 使用公有链
+            private async Task<int> FindINorOUTdata(long bi, int flag)
         {
             bool findInOut = false;
             string result = await HttpGetBlock(bi.ToString(), flag);
@@ -1478,17 +1560,17 @@ namespace Wpf_testconnectRPC
 
         private void Private_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
-            blockid.Text = PrivateIndex.Content.ToString();
+            blockid.Text = PrivateIndex.Content.ToString().Split('/')[0].Trim(); ;
         }
 
         private void Test_DoubleClick(object sender, MouseButtonEventArgs e)
         {
-            blockid.Text = TestIndex.Content.ToString();
+            blockid.Text = TestIndex.Content.ToString().Split('/')[0].Trim(); ;
         }
 
         private void Main_DoubleClick(object sender, MouseButtonEventArgs e)
         {
-            blockid.Text = MainIndex.Content.ToString();
+            blockid.Text = MainIndex.Content.ToString().Split('/')[0].Trim();
         }
     }
 }
