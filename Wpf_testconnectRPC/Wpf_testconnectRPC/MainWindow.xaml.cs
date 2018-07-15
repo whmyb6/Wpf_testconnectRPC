@@ -154,7 +154,45 @@ namespace Wpf_testconnectRPC
                     else
                     {
                         if (find == 1)
-                            WriteStringToFileLOCK(index.ToString(), logfilename, true,flag);
+                        {
+                            WriteStringToFileLOCK(index.ToString(), logfilename, true, flag);
+
+                        }
+                        if (blockJS % 100 == 0)
+                        { //每100次统计一次 blockcount ======
+                            blockJS = 0;
+                            blockCount = await FindBlockCount(flag);
+                            Console.WriteLine("Block Count:" + blockCount);
+                        }
+                        blockJS++;
+                        if (flag == (int)BLOCK_Flag.test)
+                        {
+                            test_Index = index;
+                            Console.WriteLine("test: " + index);
+                            this.Dispatcher.Invoke(() =>
+                            {
+                                this.TestIndex.Content = index + " / " + blockCount;
+                            });
+                        }
+                        if (flag == (int)BLOCK_Flag.main)
+                        {
+                            main_Index = index;
+                            Console.WriteLine("main: " + index);
+                            this.Dispatcher.Invoke(() =>
+                            {
+                                this.MainIndex.Content = index + " / " + blockCount;
+                            });
+                        }
+                        if (flag == (int)BLOCK_Flag.priv)
+                        {
+                            private_Index = index;
+                            Console.WriteLine("private: " + index);
+                            this.Dispatcher.Invoke(() =>
+                            {
+                                this.PrivateIndex.Content = index + " / " + blockCount;
+                            });
+                        }
+
                         index++;
                     }
 
@@ -162,39 +200,7 @@ namespace Wpf_testconnectRPC
                     //if (flag == (int)BLOCK_Flag.test) test_Index = index;
                     //if (flag == (int)BLOCK_Flag.priv) private_Index = index;
 
-                    if ( blockJS % 100 == 0) {
-                        blockJS = 0;
-                        blockCount = await FindBlockCount(flag);
-                        Console.WriteLine("Block Count:" + blockCount);
-                    }
-                    blockJS++;
-                    if (flag == (int)BLOCK_Flag.test)
-                    {
-                        test_Index = index;
-                        Console.WriteLine("test: " + index);
-                        this.Dispatcher.Invoke(() =>
-                        {
-                            this.TestIndex.Content = index + " / " + blockCount;
-                        });
-                    }
-                    if (flag == (int)BLOCK_Flag.main)
-                    {
-                        main_Index = index;
-                        Console.WriteLine("main: " + index);
-                        this.Dispatcher.Invoke(() =>
-                        {
-                            this.MainIndex.Content = index + " / " + blockCount;
-                        });
-                    }
-                    if (flag == (int)BLOCK_Flag.priv)
-                    {
-                        private_Index = index;
-                        Console.WriteLine("private: " + index);
-                        this.Dispatcher.Invoke(() =>
-                        {
-                            this.PrivateIndex.Content = index + " / " + blockCount;
-                        });
-                    }
+
 
 
                 }
