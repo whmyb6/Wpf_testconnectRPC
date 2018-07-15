@@ -101,7 +101,7 @@ namespace Wpf_testconnectRPC
         {
             Console.WriteLine("MainWindow_Closing!");
             Run_flag = false;
-            Thread.Sleep(300);
+            Thread.Sleep(500);
         }
         private void MainWindow_Closed(object sender, EventArgs e)
         {
@@ -140,7 +140,15 @@ namespace Wpf_testconnectRPC
 
                     if (find == -1)
                     {
-                        Thread.Sleep(3000);
+                        while (Run_flag)
+                        {
+                            find++;
+                            if (find <= 100)
+                                Thread.Sleep(100); //在 NEO 的 DBFT 共识机制下，每 15~20 秒生成一个区块
+                            else
+                                break;
+                        }
+
                         blockJS = 0;
                     }
                     else
@@ -1413,7 +1421,6 @@ namespace Wpf_testconnectRPC
 
 
             int count = lst.Items.Count;
-            lock (mainLockFileObj)
             {
                 StreamWriter _wstream = null;
                 _wstream = new StreamWriter(spath);
@@ -1468,33 +1475,7 @@ namespace Wpf_testconnectRPC
         }
 
 
-        private StringBuilder ReadFileToStringLOCK( string spath,int flag) // 读取txt文件
-        {
-            StringBuilder result = null;
-            if (!File.Exists(spath))
-            {
-                return result;
-            }
-            if(flag == (int)BLOCK_Flag.main)
-                lock (mainLockFileObj)
-                {
-                    result= ReadFileToString(spath);
-                }
-            if (flag == (int)BLOCK_Flag.test)
-                lock (testLockFileObj)
-                {
-                    result=ReadFileToString(spath);
-                }
-            if (flag == (int)BLOCK_Flag.priv)
-                lock (privateLockFileObj)
-                {
-                    result=ReadFileToString(spath);
-                }
 
-            return result; 
-            
-            
-        }
         private StringBuilder ReadFileToString(string spath) // 读取txt文件
         {
             StringBuilder result = new StringBuilder();
@@ -1521,7 +1502,7 @@ namespace Wpf_testconnectRPC
             {
                 return counts;
             }
-            lock (mainLockFileObj)
+            //lock (mainLockFileObj)
             {
                 StreamReader _rstream = null;
                 _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
