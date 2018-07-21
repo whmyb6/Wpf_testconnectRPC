@@ -562,9 +562,14 @@ namespace Wpf_testconnectRPC
 
             int vins_index = 1; 
 
+
             //处理抛出的交易数量
             if (Vins.Count > 0)
             {
+                //当输入记录数超过1000时，显示进度%
+                bool showJD = Vins.Count >= 1000 ? true : false;
+                int between = (int)Vins.Count / 100;
+                between = between < 1 ? 1 : between;
                 //Console.WriteLine("%%%%%  vin %%%%%%%%%%%");
                 //Console.WriteLine(Tx["vin"]);
                 // Console.WriteLine("###########  allTxs  ###########");
@@ -618,10 +623,17 @@ namespace Wpf_testconnectRPC
                     //var resultstr = (JObject)Newtonsoft.Json.JsonConvert.DeserializeObject(filestr);
                     var resultstr = JObject.Parse(filestr);
                     var result = resultstr["vout"];
-                    int ci = 1;
-
+                    
                     Console.WriteLine("  Index:" + blockindex + " vins(" + vins_index + "/"+ Vins.Count + ") "+  vin["txid"].ToString() + " " + vin["vout"].ToString());
                     vins_index++;
+                    if (showJD)
+                    {
+                        if (vins_index % between == 0)
+                            this.Dispatcher.Invoke(() => {
+                                this.text.Text = blockindex + " " + (int)(vins_index *100 / Vins.Count) + "%";
+                            });
+                    }
+
                     //逐条 查找 OUTPUT交易记录 ===
                     foreach (var  v in result)
                     {
@@ -640,7 +652,7 @@ namespace Wpf_testconnectRPC
                             }
 
                         //}
-                        ci++;
+                       
                     }
  
                 }
