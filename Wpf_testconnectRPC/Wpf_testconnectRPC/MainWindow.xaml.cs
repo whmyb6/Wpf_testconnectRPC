@@ -905,20 +905,20 @@ namespace Wpf_testconnectRPC
                 if (flag == (int)BLOCK_Flag.test)
                 {
                     TestButton.IsEnabled = false;
-                    ReadTxtToLstLOCK(listBox, testFileName,flag);
-                    this.listBox.Items.Add(test_Index);
+                    string last = ReadTxtToLstLOCK(listBox, testFileName,flag);
+                    if(long.Parse(last) != test_Index) this.listBox.Items.Add(test_Index);
                 }
                 if (flag == (int)BLOCK_Flag.main)
                 {
                     MainButton.IsEnabled = false;
-                    ReadTxtToLstLOCK(listBox, mainFileName,flag);
-                    this.listBox.Items.Add(main_Index);
+                    string last = ReadTxtToLstLOCK(listBox, mainFileName,flag);
+                    if (long.Parse(last) != main_Index) this.listBox.Items.Add(main_Index);
                 }
                 if (flag == (int)BLOCK_Flag.priv)
                 {
                     PrivateButton1.IsEnabled = false;
-                    ReadTxtToLstLOCK(listBox, privateFileName,flag);
-                    this.listBox.Items.Add(private_Index);
+                    string last = ReadTxtToLstLOCK(listBox, privateFileName,flag);
+                    if (long.Parse(last) != private_Index) this.listBox.Items.Add(private_Index);
                 }
 
 
@@ -1455,41 +1455,43 @@ namespace Wpf_testconnectRPC
         }
 
 
-        private void ReadTxtToLstLOCK(ListBox lst, string spath,int flag) //listbox 读取txt文件
+        private string ReadTxtToLstLOCK(ListBox lst, string spath,int flag) //listbox 读取txt文件
         {
-
+            string resultstr = "";
             if (!File.Exists(spath))
             {
-                return ;
+                return resultstr;
             }
             lst.Items.Clear();
             if(flag == (int)BLOCK_Flag.main)
                 lock (mainLockFileObj)
                 {
-                    ReadTxtToLst(lst, spath);
+                    resultstr = ReadTxtToLst(lst, spath);
                 }
             if (flag == (int)BLOCK_Flag.test)
                 lock (testLockFileObj)
                 {
-                    ReadTxtToLst(lst, spath);
+                    resultstr = ReadTxtToLst(lst, spath);
                 }
             if (flag == (int)BLOCK_Flag.priv)
                 lock (privateLockFileObj)
                 {
-                    ReadTxtToLst(lst, spath);
+                    resultstr = ReadTxtToLst(lst, spath);
                 }
+            return resultstr;
         }
-        private void ReadTxtToLst(ListBox lst, string spath)
+        private string ReadTxtToLst(ListBox lst, string spath)
         {
             StreamReader _rstream = null;
             _rstream = new StreamReader(spath, System.Text.Encoding.UTF8);
-            string line;
+            string line,resultstr = "";
             while ((line = _rstream.ReadLine()) != null)
             {
                 lst.Items.Add(line);
+                resultstr = line;
             }
             _rstream.Close();
-
+            return resultstr;
         }
 
 
