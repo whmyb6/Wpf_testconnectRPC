@@ -906,18 +906,21 @@ namespace Wpf_testconnectRPC
                 {
                     TestButton.IsEnabled = false;
                     string last = ReadTxtToLstLOCK(listBox, testFileName,flag);
+                    last = last.Replace("#", "");
                     if(long.Parse(last) != test_Index) this.listBox.Items.Add(test_Index);
                 }
                 if (flag == (int)BLOCK_Flag.main)
                 {
                     MainButton.IsEnabled = false;
                     string last = ReadTxtToLstLOCK(listBox, mainFileName,flag);
+                    last = last.Replace("#", "");
                     if (long.Parse(last) != main_Index) this.listBox.Items.Add(main_Index);
                 }
                 if (flag == (int)BLOCK_Flag.priv)
                 {
                     PrivateButton1.IsEnabled = false;
                     string last = ReadTxtToLstLOCK(listBox, privateFileName,flag);
+                    last = last.Replace("#", "");
                     if (long.Parse(last) != private_Index) this.listBox.Items.Add(private_Index);
                 }
 
